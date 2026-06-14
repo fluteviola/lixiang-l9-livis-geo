@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>首推形成机制分析 · 理想L9 vs 问界M9</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#fff; --ink:#1d2129; --sub:#6b7280; --line:#e9edf2;
+    --blue:#2f6bff; --blue-bg:#eaf1ff; --green:#1fae6f; --green-bg:#e7f7ef;
+    --red:#ef4444; --amber:#f59e0b; --amber-bg:#fff7e6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);padding:22px;font-size:13.5px;line-height:1.55}
+  .wrap{max-width:1180px;margin:0 auto}
+  .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+  .hdr h1{font-size:20px;font-weight:800}
+  .hdr .sub{color:var(--sub);font-size:12.5px;margin-left:10px;font-weight:400}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:12.5px;color:var(--sub)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px}
+  .card h2{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .num{font-size:11px;background:#eef2f7;color:var(--sub);border-radius:6px;padding:2px 7px;font-weight:700}
+  .grid2{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:stretch}
+  .grid2 > .card{margin-bottom:0;height:100%}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start}
+  .stat{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .sbox{background:#fafbfc;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .sbox .lab{font-size:12.5px;color:var(--sub);display:flex;align-items:center;gap:6px}
+  .sbox .big{font-size:30px;font-weight:800;margin-top:6px}
+  .sbox .meta{font-size:12px;color:var(--sub);margin-top:2px}
+  .b-blue{color:var(--blue)} .b-green{color:var(--green)}
+  .tag{display:inline-block;font-size:11px;border-radius:5px;padding:1px 7px;font-weight:700}
+  .tag.blue{background:var(--blue-bg);color:var(--blue)} .tag.green{background:var(--green-bg);color:var(--green)}
+  .insight{background:linear-gradient(180deg,#f0f6ff,#fafdff);border:1px solid #dbe7ff;border-radius:12px;padding:14px 16px}
+  .insight ul{margin-left:2px;list-style:none}
+  .insight li{position:relative;padding-left:16px;margin:8px 0;font-size:12.8px}
+  .insight li:before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--blue)}
+  table{width:100%;border-collapse:collapse;font-size:12.7px}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--sub);font-weight:600;font-size:12px}
+  .barbg{background:#eef2f7;border-radius:5px;height:8px;overflow:hidden;display:inline-block;width:90px;vertical-align:middle}
+  .barfill{height:100%;border-radius:5px}
+  .diff-pos{color:var(--red);font-weight:700} .diff-neg{color:var(--green);font-weight:700}
+  .pcol{background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:12px 14px;height:100%}
+  .plist{font-size:12.4px}
+  .plist .row{padding:6px 0;border-bottom:1px dashed var(--line);color:#374151}
+  .plist .row:last-child{border-bottom:none}
+  .col-head{font-weight:700;font-size:13px;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--line)}
+  .why{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .whybox{border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .whybox.win{background:var(--green-bg);border-color:#bfe6d2}
+  .whybox.lose{background:var(--blue-bg);border-color:#cfe0ff}
+  .whybox h3{font-size:13.5px;margin-bottom:6px}
+  .whybox ul{list-style:none;font-size:12.3px}
+  .whybox li{padding:3px 0 3px 14px;position:relative}
+  .whybox li:before{content:"·";position:absolute;left:2px;font-weight:800}
+  .attr{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+  .attr .ic{width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font-size:17px}
+  .attr .t{font-weight:700;font-size:13px;margin-bottom:3px}
+  .attr .d{font-size:12.2px;color:var(--sub)}
+  .imp{font-size:11px;font-weight:700;border-radius:6px;padding:2px 8px;white-space:nowrap}
+  .p0{background:#fde8e8;color:#d11} .p1{background:var(--amber-bg);color:#b8860b}
+  .note{font-size:11.5px;color:var(--sub);margin-top:4px}
+  @media(max-width:820px){.grid2,.grid3,.stat,.why{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hdr">
+    <div><h1>📊 首推形成机制分析<span class="sub">分析 AI 在哪些 Prompt 中首推竞品，以及背后的信源支撑，指导信源优化策略</span></h1></div>
+    <div style="display:flex;gap:8px">
+      <span class="pill">品牌对比：<b class="b-blue">问界M9</b> vs <b class="b-green">理想L9</b></span>
+      <span class="pill">数据范围：2026-06-13 快照</span>
+    </div>
+  </div>
+
+  <!-- 概览 -->
+  <div class="grid2">
+    <div class="card">
+      <h2>首推概览 <span class="num">基于 80 个回答 = 40 Prompt × 2 平台</span></h2>
+      <div class="note" style="margin:-6px 0 12px">说明：本页"首推/首推率"统计的是<b>车型层（理想L9）</b>——即回答里第一个被点到的车型；<b>"Livis" 是 L9 的目标版本</b>，其被点名情况见下方红框。</div>
+      <div class="stat">
+        <div class="sbox">
+          <div class="lab">🥇 <b class="b-blue">问界M9</b></div>
+          <div class="big b-blue">47.5%</div>
+          <div class="meta">38/80 回答中被 AI 首推（首个提及车型）</div>
+          <div class="meta">豆包 10 · <b>千问 28</b>（强在千问）</div>
+        </div>
+        <div class="sbox">
+          <div class="lab">🥈 <b class="b-green">理想L9</b>（车型层）</div>
+          <div class="big b-green">42.5%</div>
+          <div class="meta">34/80 回答中被 AI 首推</div>
+          <div class="meta"><b>豆包 24</b> · 千问 10（强在豆包）</div>
+        </div>
+        <div class="sbox" style="background:#fff4f4;border-color:#f3c3c3">
+          <div class="lab">⚠ 其中点名 <b class="b-green">理想L9 Livis</b></div>
+          <div class="big" style="color:#d11">仅 25%/48%</div>
+          <div class="meta">理想L9 提及≈100%，但点到 <b>Livis 版本</b>：豆包 25% / 千问 48%</div>
+          <div class="meta">→ <b>首推到了 L9，Livis 却大多没被点名（二次损耗）</b></div>
+        </div>
+      </div>
+      <div class="note" style="margin-top:10px"><b>平台分裂题 17 个</b>（豆包首推理想 / 千问首推问界）= 千问主战场，优先夺回。</div>
+    </div>
+    <div class="card insight">
+      <h2>💡 核心洞察</h2>
+      <ul>
+        <li>整体首推 <b>问界略胜（47.5% vs 42.5%）</b>，但<b>分平台两极</b>：豆包首推理想、千问首推问界。</li>
+        <li>千问首推问界的根因：问界在<b>搜狐、百度有驾、知乎、新浪</b>等"开放web+社区"信源覆盖更强，而这些正是<b>千问爱引的渠道</b>。</li>
+        <li>理想的优势集中在<b>字节系（今日头条、懂车帝）</b>，只在豆包转化为首推。</li>
+        <li><b>两层损耗</b>：① 千问首推被问界压制（车型层）；② 即便首推到理想L9，<b>Livis 版本大多没被点名</b>（版本层，仅 25%/48%）——两层都要补。</li>
+        <li>打法：<b>搜狐号/百度有驾/知乎 + 官网</b>补内容，且<b>标题正文必须点名"理想L9 Livis"+ 正确规格</b>。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 首推Prompt分布 -->
+  <div class="card">
+    <h2>1. 首推 Prompt 分布</h2>
+    <div class="grid3">
+      <div class="pcol">
+        <div class="col-head b-blue">两平台都首推问界（8）</div>
+        <div class="plist" id="wjlist"></div>
+      </div>
+      <div class="pcol">
+        <div class="col-head b-green">两平台都首推理想（8）</div>
+        <div class="plist" id="lilist"></div>
+      </div>
+      <div class="pcol">
+        <div class="col-head">分裂题（17）<span style="font-weight:400;color:var(--sub);font-size:11px"> 豆包理想·千问问界</span></div>
+        <div class="plist" id="splist"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 样例溯因 prompt→信源→首推 -->
+  <div class="card">
+    <h2>2. 样例溯因：Prompt → 信源 → 首推</h2>
+    <div class="why">
+      <div class="whybox lose">
+        <h3 class="b-blue">「40万-50万续航好的SUV」→ 首推问界（理想落后）</h3>
+        <ul>
+          <li>"续航好"被理解成<b>纯电续航优先</b>，问界M9纯电(750km)登顶；理想L9增程纯电仅420km吃亏。</li>
+          <li>抓到的信源几乎全是<b>纯电续航横评/排行</b>（《纯电SUV四强对决》《续航排行榜》）。</li>
+          <li>问题：<b>没有把"续航好"和理想L9综合续航1650km绑定的内容</b>，Prompt歧义没被接住。</li>
+        </ul>
+      </div>
+      <div class="whybox win">
+        <h3 class="b-green">「带冰箱彩电的六座SUV」→ 首推理想L9（含Livis）</h3>
+        <ul>
+          <li><b>品牌-概念强绑定</b>：理想是"冰箱彩电大沙发"开创者，信源标题大量点名理想。</li>
+          <li><b>全系标配+规格具体</b>：10L冰箱+21英寸4K屏，可被直接摘取。</li>
+          <li>标题含查询关键词、多源共识；反面：爱卡那篇标题蹭关键词、正文却讲蓝山（薄引用=可替换的机会位）。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note">规律：<b>赢的维度</b>＝强绑定+全系标配+规格具体+多源共识；<b>输的维度</b>＝被竞品用排行框定+理想无针对性内容。</div>
+  </div>
+
+  <!-- 信源分类 + Gap -->
+  <div class="grid2">
+    <div class="card">
+      <h2>3. 首推信源引用分布对比</h2>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:space-around;flex-wrap:wrap">
+        <div style="text-align:center"><div style="font-size:12px;color:var(--sub);margin-bottom:4px">问界首推样本（n=1923）</div><canvas id="d1" width="200" height="200"></canvas></div>
+        <div style="text-align:center"><div style="font-size:12px;color:var(--sub);margin-bottom:4px">理想首推样本（n=1369）</div><canvas id="d2" width="200" height="200"></canvas></div>
+      </div>
+      <div class="note">对比：理想首推样本里<b>垂直媒体占比更高(47.6% vs 36.4%)</b>；问界首推样本里<b>权威/综合媒体与社区(知乎)/海外占比更高</b>——即问界赢在"开放web+社区"覆盖。</div>
+    </div>
+    <div class="card">
+      <h2>4. 关键信源 Gap（被引次数：问界首推 − 理想首推）</h2>
+      <table id="gaptbl"><thead><tr><th>信源</th><th>问界</th><th>理想</th><th>差值</th></tr></thead><tbody></tbody></table>
+      <div class="note">正值=问界领先（红），负值=理想领先（绿）。问界领先的搜狐/百度有驾/知乎/新浪/YouTube 正是千问偏好渠道；理想领先的今日头条/懂车帝是豆包渠道。</div>
+    </div>
+  </div>
+
+  <!-- 归因 -->
+  <div class="card">
+    <h2>5. 首推差异归因（为什么问界更容易被首推，尤其在千问）</h2>
+    <div class="grid3">
+      <div class="attr"><div class="ic" style="background:var(--blue-bg)">🌐</div><div><div class="t">开放web+社区覆盖更强 <span class="imp p0">影响度 高</span></div><div class="d">问界在搜狐(+76)、百度有驾(+53)、知乎(+48)、新浪(+40)领先，这些是千问主力检索源，直接拉高千问首推。</div></div></div>
+      <div class="attr"><div class="ic" style="background:var(--green-bg)">📹</div><div><div class="t">海外/视频偏问界 <span class="imp p1">影响度 中</span></div><div class="d">YouTube 等海外/视频信源问界领先(+45)，千问会引海外内容，进一步加权问界。</div></div></div>
+      <div class="attr"><div class="ic" style="background:var(--amber-bg)">📰</div><div><div class="t">理想优势集中在字节系 <span class="imp p1">影响度 中</span></div><div class="d">理想在今日头条(+35)、懂车帝(+34)领先，但这是豆包生态——所以理想只在豆包首推，千问吃不到。</div></div></div>
+    </div>
+  </div>
+
+  <!-- 句级语义归因 -->
+  <div class="card">
+    <h2>6. 句级语义归因（抽样）：Livis 舒适描述被"旧款顶包"</h2>
+    <p style="font-size:12.6px;color:var(--sub);margin-bottom:12px">对"哪款更舒适"回答里关于理想L9 Livis 的<b>非数字论断</b>做语义溯源（抓信源正文匹配）。发现 AI 没有 Livis 专属舒适内容，<b>借用了"理想L9 2025款(旧款)"横评，导致规格漂移</b>。</p>
+    <table>
+      <thead><tr><th>回答声称（Livis）</th><th>语义命中信源原文</th><th>官方实际（Livis）</th><th>问题</th></tr></thead>
+      <tbody>
+        <tr><td>后排 <b>15.7英寸OLED</b> 娱乐屏</td><td>旧款L9横评："15.7英寸OLED<b>中控屏</b>"</td><td><b>21英寸4K</b> 后舱屏</td><td><span class="diff-pos">规格漂移</span></td></tr>
+        <tr><td><b>16点</b> 全身按摩</td><td>旧款横评：仅"按摩功能"无点数</td><td><b>18点</b> 热石按摩</td><td><span class="diff-pos">点数错</span></td></tr>
+        <tr><td><b>魔毯空气悬架</b></td><td>旧款/Ultra 描述</td><td><b>800V 主动悬架</b></td><td><span class="diff-pos">悬架类型错</span></td></tr>
+        <tr><td>二排零重力+加热通风按摩</td><td>旧款L9："二排座椅具备全向电动调节、加热、通风与按摩"</td><td>一致</td><td><span class="diff-neg">✓ 同源正确</span></td></tr>
+      </tbody>
+    </table>
+    <div class="note"><b>启示</b>：Livis 缺"专属舒适内容"，AI 拿旧款顶包 → 必须发"理想L9 Livis：21英寸4K屏 / 18点热石按摩 / 800V主动悬架"的正确素材，替换被引的旧款横评。（数字反查查不出这类非数字论断的来源，需句级语义归因；全量需研发"归因模块"）</div>
+  </div>
+
+  <!-- 优化建议 -->
+  <div class="card">
+    <h2>7. 信源优化建议（如何让理想L9 Livis 在更多 Prompt 首推）</h2>
+    <table>
+      <thead><tr><th>优先级</th><th>优化方向</th><th>重点信源</th><th>篇数/频次（起步基线）</th><th>预期</th></tr></thead>
+      <tbody>
+        <tr><td><span class="imp p0">P0</span></td><td>夺回千问主战场<br><span style="color:var(--sub);font-size:11px">搜狐/百度有驾/知乎发 Livis 内容</span></td><td>搜狐号·百度有驾·知乎</td><td><b>首月每渠道 12–18 篇</b>（5个重点维度×各2-3篇 + 13个弱维度×各1篇）；之后每周每渠道 3–5 篇滚动更新</td><td>千问首推率↑</td></tr>
+        <tr><td><span class="imp p0">P0</span></td><td>官网+权威媒体补Livis</td><td>理想官网·新浪·网易</td><td>官网：每车型页 schema + <b>弱维度落地页约 8–10 个</b>；权威媒体：核心硬数字稿 <b>5–8 篇</b>（多源印证）</td><td>千问/通用↑</td></tr>
+        <tr><td><span class="imp p1">P1</span></td><td>巩固豆包优势</td><td>今日头条号·懂车帝</td><td><b>每维度 1–2 篇</b>（首月约 10–15 篇）+ 标题点名 Livis，持续维持</td><td>维持豆包首推</td></tr>
+        <tr><td><span class="imp p1">P1</span></td><td>地基同步</td><td>汽车之家·太平洋·易车·中关村</td><td>每重点维度 <b>1 篇</b>（首月约 5–8 篇）</td><td>跨平台被引↑</td></tr>
+      </tbody>
+    </table>
+    <div class="note">篇数为<b>起步基线</b>，按监控的"Livis提及率/首推率"每月迭代：某维度达标即降频、未达标即加投。全渠道铁律：<b>标题必出现"理想L9 Livis"</b>（信源标题含Livis ↔ 回答提Livis 约20倍正相关）。</div>
+  </div>
+
+  <!-- 内容撰写建议 -->
+  <div class="card">
+    <h2>8. 内容撰写建议（两平台抽取逻辑 → 怎么写）</h2>
+    <div class="why">
+      <div class="whybox lose">
+        <h3 class="b-blue">面向豆包</h3>
+        <div style="font-size:12.4px">
+          <p><b>它怎么抽：</b>偏榜单/导购体；标题爱带<b>价格"万"(57%)+决策词(怎么选/推荐 39%)+测评/榜单</b>；正文抽<b>成段场景化叙述 + 车型排序 + 配置点</b>。来源集中在字节系(头条/懂车帝)+主流垂媒。</p>
+          <p style="margin-top:8px"><b>标题怎么写：</b>「2026年50万六座增程SUV怎么选：理想L9 Livis 冰箱彩电+座椅按摩实测」——年份+价格+品类+决策词+理想L9 Livis。</p>
+          <p style="margin-top:8px"><b>内容怎么写：</b>① 开篇一句话结论点名 Livis；② 按<b>使用场景</b>成段叙述(家庭长途/带娃/露营)，每段落地到 Livis 的具体配置+体验；③ 给"X款怎么选"清单，Livis 居首；④ 价格/配置点显性化。<b>风格：口语、场景化、有价格锚点。</b></p>
+        </div>
+      </div>
+      <div class="whybox win">
+        <h3 class="b-green">面向千问</h3>
+        <div style="font-size:12.4px">
+          <p><b>它怎么抽：</b>偏参数/排行/对比；标题<b>数字(87%)</b>为主，对比/榜单占比低；正文抽<b>结构化参数、表格、规格</b>；且会因<b>标题关键词匹配引用单车文(哪怕正文薄)</b>。来源多元(门户+知乎+官网)。</p>
+          <p style="margin-top:8px"><b>标题怎么写：</b>「理想L9 Livis 参数解析：21英寸4K屏/18点按摩/800V主动悬架/综合续航1650km」——精准接 query + 具体规格数字 + 车型全名。</p>
+          <p style="margin-top:8px"><b>内容怎么写：</b>① 结论前置；② <b>规格表/对比表</b>(可整段被抽)；③ 分维度结构化小节(续航/座椅/底盘/智驾)；④ 官网配 FAQPage schema。<b>风格：参数化、结构化、规格唯一带单位。</b>用优质结构化文替换当前被引的薄单车文。</p>
+        </div>
+      </div>
+    </div>
+    <div class="note">同一套事实(节点卡)出两种体裁：豆包=榜单/场景化，千问=参数/对比表；数据一致，只换结构。两平台都必须在<b>标题与正文点名"理想L9 Livis"并用正确规格</b>(21英寸4K/18点按摩/800V主动悬架)，避免被旧款顶包。</div>
+  </div>
+
+  <div class="note">数据说明：基于《提示词数据表.xlsx》40 个真实用户提示词 × 豆包/千问 2 平台 = 80 个回答（2026-06-13 单次快照）。"首推"= 回答中第一个被提及的品牌。信源分类按 URL 域名归一推断（原始分类约 74% 未标注）。本页为信源诊断模块的可视化样例。</div>
+
+</div>
+
+<script>
+const D={
+  wj:["40万-50万续航好的SUV有哪些？","50万左右智能驾驶最靠谱的SUV推荐","50万左右哪款大型增程SUV的外观好看？","2026年最值得买的50万SUV推荐","50万左右的大型增程SUV哪款更智能？","50万左右跨城出差跑高速舒服的六座SUV","50万左右商用接待有面子的六座SUV怎么选","50万左右的大型增程SUV哪款安全性强？"],
+  li:["50万左右带车载冰箱和彩电的六座SUV推荐","40-50万价位，六座增程SUV哪款舒适性强？","40-50万的六座增程SUV，哪款续航长？","预算50万左右，想买续航长的增程SUV，有什么推荐？","40-50万，性价比高的六座增程SUV推荐？","预算40-50万，家庭出行应该选哪款六座增程SUV？","40万-50万有冷暖冰箱适合露营开的增程车","50万配置拉顶的六座增程SUV"],
+  sp:["50万左右的大型增程SUV，哪款更舒适？","50万左右家用六座SUV推荐","50万左右，动力强的大型增程SUV有哪些？","40万-50万适合二胎家庭出行的六座SUV推荐","外观好看的40-50万六座增程SUV有哪些？","40万-50万增程SUV哪款配置高","50万左右长途自驾舒适度高的SUV","50万左右的大型增程SUV哪款性价比高？","50万级全尺寸家用六座SUV选哪款","50万左右的大型增程SUV，哪款最适合家庭出行？","40-50万的六座增程SUV，哪款适合长途自驾？","50万左右哪款大型增程SUV适合长途自驾？"],
+  gap:[["搜狐",153,77,76],["百度有驾",104,51,53],["知乎",76,28,48],["汽车之家",299,254,45],["YouTube",58,13,45],["新浪",166,126,40],["今日头条",20,55,-35],["懂车帝",22,56,-34],["中关村在线",96,125,-29],["凤凰",38,16,22],["太平洋汽车",115,95,20],["蔚来官网",19,4,15]],
+  catW:{"垂直行业媒体":36.4,"权威/综合媒体":30.7,"其他":20.6,"官网":4.3,"视频媒体":4.0,"内容社区平台":4.0},
+  catL:{"垂直行业媒体":47.6,"权威/综合媒体":30.4,"其他":15.0,"官网":3.2,"内容社区平台":2.0,"视频媒体":1.7}
+};
+function fill(id,arr){document.getElementById(id).innerHTML=arr.map(p=>`<div class="row"><span>${p}</span></div>`).join('')}
+fill('wjlist',D.wj);fill('lilist',D.li);fill('splist',D.sp);
+
+const maxAbs=Math.max(...D.gap.map(g=>Math.abs(g[3])));
+document.querySelector('#gaptbl tbody').innerHTML=D.gap.map(g=>{
+  const pos=g[3]>0;const w=Math.round(Math.abs(g[3])/maxAbs*90);
+  return `<tr><td>${g[0]}</td><td>${g[1]}</td><td>${g[2]}</td><td><span class="barbg"><span class="barfill" style="width:${w}px;background:${pos?'#ef4444':'#1fae6f'}"></span></span> <span class="${pos?'diff-pos':'diff-neg'}">${pos?'+':''}${g[3]}</span></td></tr>`}).join('');
+
+const palette=['#2f6bff','#1fae6f','#f59e0b','#a855f7','#ec4899','#94a3b8'];
+function donut(cid,obj){new Chart(document.getElementById(cid),{type:'doughnut',data:{labels:Object.keys(obj),datasets:[{data:Object.values(obj),backgroundColor:palette,borderWidth:1,borderColor:'#fff'}]},options:{cutout:'58%',plugins:{legend:{display:cid==='d2',position:'bottom',labels:{boxWidth:9,font:{size:10}}}}}})}
+donut('d1',D.catW);donut('d2',D.catL);
+</script>
+</body>
+</html>
